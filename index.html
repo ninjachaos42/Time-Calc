@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#e9edf0" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0d1319" media="(prefers-color-scheme: dark)">
+<meta name="color-scheme" content="light dark">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Time Calc">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<title>24-Hour Time Calculator</title>
+<style>
+  html { padding-block: env(safe-area-inset-top, 0px) env(safe-area-inset-bottom, 0px); -webkit-text-size-adjust: 100%; }
+  body { margin: 0; min-height: 100vh; }
+  [hidden] { display: none !important; }
+</style>
+<style>
+  /* Layout: a handheld calculator body centered on the page. Green LCD on top, 4-column keypad below, = key spans two columns. */
+  :root {
+    --bg: #e9edf0;
+    --body: #d6dde3;
+    --body-edge: #b9c4cd;
+    --lcd: #cddbc6;
+    --lcd-fg: #172419;
+    --lcd-dim: #5a6c5b;
+    --key: #f7f9fa;
+    --key-fg: #14202b;
+    --key-edge: #aab7c1;
+    --op: #bcd0db;
+    --op-fg: #0e3a4a;
+    --eq: #0b6e8a;
+    --eq-fg: #ffffff;
+    --fg: #14202b;
+    --muted: #586978;
+    --error: #a3231b;
+    --font-display: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    --font-body: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0d1319;
+      --body: #1a232b;
+      --body-edge: #2a3640;
+      --lcd: #0f1c15;
+      --lcd-fg: #9ef0b4;
+      --lcd-dim: #4f7d5f;
+      --key: #27333e;
+      --key-fg: #e6edf3;
+      --key-edge: #0a0f13;
+      --op: #2f4655;
+      --op-fg: #bfe9f5;
+      --eq: #4cc3e0;
+      --eq-fg: #06222b;
+      --fg: #e6edf3;
+      --muted: #93a4b3;
+      --error: #ff8a80;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0d1319;
+    --body: #1a232b;
+    --body-edge: #2a3640;
+    --lcd: #0f1c15;
+    --lcd-fg: #9ef0b4;
+    --lcd-dim: #4f7d5f;
+    --key: #27333e;
+    --key-fg: #e6edf3;
+    --key-edge: #0a0f13;
+    --op: #2f4655;
+    --op-fg: #bfe9f5;
+    --eq: #4cc3e0;
+    --eq-fg: #06222b;
+    --fg: #e6edf3;
+    --muted: #93a4b3;
+    --error: #ff8a80;
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-body);
+    font-size: 16px;
+    line-height: 1.5;
+    padding-block: 32px 48px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+  main { max-width: 360px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+  h1 { font-size: 1.125rem; font-weight: 600; margin: 0; text-wrap: balance; }
+
+  .calc {
+    background: var(--body);
+    border: 1px solid var(--body-edge);
+    border-radius: 20px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    box-shadow: 0 12px 28px -14px rgba(0, 0, 0, 0.4);
+  }
+  .lcd {
+    background: var(--lcd);
+    color: var(--lcd-fg);
+    border-radius: 10px;
+    padding: 12px 16px;
+    min-height: 136px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 4px;
+    box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.3);
+  }
+  .expr { font-family: var(--font-display); font-size: 0.9375rem; color: var(--lcd-dim); min-height: 1.4em; font-variant-numeric: tabular-nums; }
+  .main { font-family: var(--font-display); font-weight: 500; font-size: clamp(3rem, 17vw, 4.5rem); line-height: 1; letter-spacing: 0.04em; font-variant-numeric: tabular-nums; }
+  .main.dim { color: var(--lcd-dim); }
+  .note { font-family: var(--font-display); font-size: 0.8125rem; color: var(--lcd-dim); text-align: right; min-height: 1.4em; }
+  .note.err { color: var(--error); }
+
+  .keys { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+  .key {
+    -webkit-user-select: none;
+    user-select: none;
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    height: 60px;
+    border: 0;
+    border-radius: 10px;
+    background: var(--key);
+    color: var(--key-fg);
+    box-shadow: 0 3px 0 var(--key-edge);
+    cursor: pointer;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .key:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--key-edge); }
+  .key.op { background: var(--op); color: var(--op-fg); }
+  .key.op.on { outline: 2px solid var(--eq); outline-offset: -2px; }
+  .key.eq { background: var(--eq); color: var(--eq-fg); grid-column: span 2; }
+  .key.fn { font-size: 1.125rem; }
+  .key:focus-visible { outline: 2px solid var(--eq); outline-offset: 2px; }
+  .hint { color: var(--muted); font-size: 0.875rem; margin: 0; }
+  @media (prefers-reduced-motion: reduce) { .key:active { transform: none; } }
+</style>
+</head>
+<body>
+
+<main>
+  <h1>24-Hour Time Calculator</h1>
+
+  <div class="calc">
+    <div class="lcd" aria-live="polite">
+      <div class="expr" id="expr"></div>
+      <div class="main" id="main">0000</div>
+      <div class="note" id="note"></div>
+    </div>
+
+    <div class="keys">
+      <button type="button" class="key" data-k="7">7</button>
+      <button type="button" class="key" data-k="8">8</button>
+      <button type="button" class="key" data-k="9">9</button>
+      <button type="button" class="key fn" data-k="B" aria-label="Backspace">&#x232B;</button>
+
+      <button type="button" class="key" data-k="4">4</button>
+      <button type="button" class="key" data-k="5">5</button>
+      <button type="button" class="key" data-k="6">6</button>
+      <button type="button" class="key op" data-k="-" aria-label="Minus">&minus;</button>
+
+      <button type="button" class="key" data-k="1">1</button>
+      <button type="button" class="key" data-k="2">2</button>
+      <button type="button" class="key" data-k="3">3</button>
+      <button type="button" class="key op" data-k="+" aria-label="Plus">+</button>
+
+      <button type="button" class="key fn" data-k="C" aria-label="Clear">C</button>
+      <button type="button" class="key" data-k="0">0</button>
+      <button type="button" class="key eq" data-k="=" aria-label="Equals">=</button>
+    </div>
+  </div>
+
+  <p class="hint">Type a time as HHMM, press + or &minus;, then type the amount as HHMM (0130 is 1 hour 30 minutes). Short entries fill from the right, so 45 means 0045. Your keyboard works too.</p>
+</main>
+
+<script>
+/*core*/
+var ERR_T = 'Time must be 0000 to 2359 (minutes 00 to 59).';
+var ERR_D = 'Minutes must be 00 to 59.';
+function pad4(s) { return String(s).padStart(4, '0'); }
+function pad2(n) { return String(n).padStart(2, '0'); }
+function fmt(t) { return pad2(Math.floor(t / 60)) + pad2(t % 60); }
+function parseT(e) {
+  var p = pad4(e), h = +p.slice(0, 2), m = +p.slice(2);
+  return (h > 23 || m > 59) ? null : h * 60 + m;
+}
+function parseD(e) {
+  var p = pad4(e), h = +p.slice(0, 2), m = +p.slice(2);
+  return m > 59 ? null : h * 60 + m;
+}
+function addMinutes(start, delta) {
+  var raw = start + delta;
+  return { time: ((raw % 1440) + 1440) % 1440, days: Math.floor(raw / 1440) };
+}
+function init() {
+  return { acc: null, op: null, entry: '', expr: '', days: 0, done: false, computed: false, err: '' };
+}
+function press(prev, k) {
+  var s = Object.assign({}, prev, { err: '' });
+  if (/^\d$/.test(k)) {
+    if (s.done) s = init();
+    if (s.entry.length < 4) s.entry += k;
+    return s;
+  }
+  if (k === 'C') return init();
+  if (k === 'B') {
+    if (s.entry) { s.entry = s.entry.slice(0, -1); return s; }
+    if (s.op !== null && !s.done) {
+      // Backspace right after + or −: undo the operator and reopen the time for editing.
+      s.entry = fmt(s.acc); s.acc = null; s.op = null; s.expr = ''; s.days = 0; s.computed = false;
+    }
+    return s;
+  }
+  if (k === '+' || k === '-') {
+    var sym = k === '+' ? '+' : '−';
+    if (s.acc === null) {
+      var t = parseT(s.entry);
+      if (t === null) { s.err = ERR_T; return s; }
+      s.acc = t; s.days = 0; s.computed = false; s.op = k; s.expr = fmt(t) + ' ' + sym; s.entry = '';
+      return s;
+    }
+    if (s.done) {
+      s.done = false; s.days = 0; s.computed = false; s.op = k; s.expr = fmt(s.acc) + ' ' + sym; s.entry = '';
+      return s;
+    }
+    if (s.entry === '') { s.op = k; s.expr = fmt(s.acc) + ' ' + sym; return s; }
+    var d = parseD(s.entry);
+    if (d === null) { s.err = ERR_D; return s; }
+    var r = addMinutes(s.acc, (s.op === '+' ? 1 : -1) * d);
+    s.acc = r.time; s.days += r.days; s.computed = true; s.op = k; s.expr = fmt(s.acc) + ' ' + sym; s.entry = '';
+    return s;
+  }
+  if (k === '=') {
+    if (s.op === null) {
+      if (s.entry !== '' && s.acc === null) {
+        var t2 = parseT(s.entry);
+        if (t2 === null) { s.err = ERR_T; return s; }
+        s.acc = t2; s.expr = fmt(t2) + ' ='; s.entry = ''; s.done = true; s.days = 0; s.computed = false;
+      }
+      return s;
+    }
+    if (s.entry === '') return s;
+    var d2 = parseD(s.entry);
+    if (d2 === null) { s.err = ERR_D; return s; }
+    var r2 = addMinutes(s.acc, (s.op === '+' ? 1 : -1) * d2);
+    s.expr = s.expr + ' ' + pad4(s.entry) + ' =';
+    s.acc = r2.time; s.days += r2.days; s.computed = true; s.op = null; s.entry = ''; s.done = true;
+    return s;
+  }
+  return s;
+}
+function dayNote(days) {
+  if (days === 0) return 'Same day';
+  var base = days === 1 ? 'Next day (+1)' : days === -1 ? 'Previous day (−1)' : (days > 0 ? '+' : '−') + Math.abs(days) + ' days';
+  return base + ' · passed 0000';
+}
+/*endcore*/
+
+var $ = function (id) { return document.getElementById(id); };
+var state = init();
+// Open with a worked example so the rollover is visible straight away.
+['2','3','0','0','+','0','1','0','0','='].forEach(function (k) { state = press(state, k); });
+
+function render() {
+  var main = $('main');
+  var empty = state.entry === '' && state.acc === null;
+  main.textContent = state.entry !== '' ? pad4(state.entry) : state.acc !== null ? fmt(state.acc) : '0000';
+  main.className = 'main' + (empty ? ' dim' : '');
+  $('expr').textContent = state.expr;
+  var note = $('note');
+  if (state.err) { note.textContent = state.err; note.className = 'note err'; }
+  else if (state.computed && state.entry === '') { note.textContent = dayNote(state.days); note.className = 'note'; }
+  else if (empty) { note.textContent = 'Enter a time, then + or −'; note.className = 'note'; }
+  else { note.textContent = ''; note.className = 'note'; }
+  document.querySelectorAll('.key.op').forEach(function (b) {
+    b.classList.toggle('on', !state.done && state.op === b.getAttribute('data-k'));
+  });
+}
+function send(k) { state = press(state, k); render(); }
+
+document.querySelectorAll('.key').forEach(function (b) {
+  b.addEventListener('click', function (e) {
+    send(b.getAttribute('data-k'));
+    if (e.detail > 0) b.blur();
+  });
+});
+document.addEventListener('keydown', function (e) {
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  var k = e.key, map = null;
+  if (/^\d$/.test(k)) map = k;
+  else if (k === '+') map = '+';
+  else if (k === '-') map = '-';
+  else if (k === '=') map = '=';
+  else if (k === 'Enter') { if (document.activeElement && document.activeElement.tagName === 'BUTTON') return; map = '='; }
+  else if (k === 'Backspace') map = 'B';
+  else if (k === 'Escape' || k === 'c' || k === 'C') map = 'C';
+  if (map === null) return;
+  e.preventDefault();
+  send(map);
+});
+render();
+</script>
+<script>
+if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
+  window.addEventListener('load', function () {
+    try { navigator.serviceWorker.register('sw.js'); } catch (e) {}
+  });
+}
+</script>
+</body>
+</html>
